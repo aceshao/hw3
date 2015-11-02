@@ -298,24 +298,25 @@ void* Process(void* arg)
 
 		char* recvBuff = new char[MAX_MESSAGE_LENGTH];
 		bzero(recvBuff, MAX_MESSAGE_LENGTH);
-		//pmgr->m_mtxRecv->Lock();
+		pmgr->m_mtxRecv->Lock();
 		if(client->Recv(recvBuff, MAX_MESSAGE_LENGTH) != MAX_MESSAGE_LENGTH)
 		{
-		//	pmgr->m_mtxRecv->Unlock();
+			pmgr->m_mtxRecv->Unlock();
 			delete [] recvBuff;
 			continue;
 		}
-		//pmgr->m_mtxRecv->Unlock();
 
 		char* sendBuff = new char[MAX_MESSAGE_LENGTH];
 		bzero(sendBuff, MAX_MESSAGE_LENGTH);
 		Message* sendMsg = (Message*)sendBuff;
 
 		Message* recvMsg = (Message*)recvBuff;
+		cout<<"action "<<recvMsg->action<<" file: "<<recvMsg->key<<" identifier "<<recvMsg->value<<" filelen:"<<recvMsg->msglength<<endl;
 		switch(recvMsg->action)
 		{
 			case CMD_SEARCH:
 			{
+				pmgr->m_mtxRecv->Unlock();
 				string value = "";
 				if(pmgr->m_htm.Search(recvMsg->key, value) != 0)
 				{
@@ -338,6 +339,7 @@ void* Process(void* arg)
 
 			case CMD_PUT:
 			{
+				pmgr->m_mtxRecv->Unlock();
 				if(pmgr->m_htm.Insert(recvMsg->key, recvMsg->value) != 0)
 				{
 					sendMsg->action = CMD_FAILED;
@@ -357,6 +359,7 @@ void* Process(void* arg)
 			}
 			case CMD_DEL:
 			{
+				pmgr->m_mtxRecv->Unlock();
 				if(pmgr->m_htm.Delete(recvMsg->key) != 0)
 				{
 					sendMsg->action = CMD_FAILED;
@@ -376,6 +379,7 @@ void* Process(void* arg)
 			}
 			case CMD_DOWNLOAD:
 			{
+				pmgr->m_mtxRecv->Unlock();
 				string downloadFilename = recvMsg->key;
 				cout<<"request to download file["<<downloadFilename<<"]"<<endl;
 				string dirname = "";
@@ -439,20 +443,24 @@ void* Process(void* arg)
 				char* file = new char[recvMsg->msglength];
 				if(client->Recv(file, recvMsg->msglength) != recvMsg->msglength)
 				{
+					pmgr->m_mtxRecv->Unlock();
 					cout<<"replica file recv failed"<<endl;
 					delete [] file;
-					return -1;
+					sendMsg->action = CMD_FAILED;
+					client->Send(sendMsg, MAX_MESSAGE_LENGTH);					
+					continue;
 				}
 
+				pmgr->m_mtxRecv->Unlock();
 				ofstream out;
-				string filefullpath = m_vecPeerInfo[m_iCurrentServernum].filebufdir + recvMsg->key;
+				string filefullpath = pmgr->m_vecPeerInfo[pmgr->m_iCurrentServernum].filebufdir + recvMsg->key;
 				out.open(filefullpath.c_str(), ios::out|ios::binary);
 				out.write(file, recvMsg->msglength);
 				out.close();
 				delete [] file;
 
 				// record the key, value which is self.
-				if(pmgr->m_htm.Insert(recvMsg->key, MakeIdentifer()) != 0)
+				if(pmgr->m_htm.Insert(recvMsg->key, pmgr->MakeIdentifer()) != 0)
 				{
 					sendMsg->action = CMD_FAILED;
 					strncpy(sendMsg->key, recvMsg->key, MAX_KEY_LENGTH);
@@ -575,7 +583,6 @@ Socket* Manager::getSock(string ip, int port)
 int Manager::put(string key, string value)
 {
 	int hash = getHash(key);
-	cout<<"hash:"<<hash<<endl;
 	string severip = m_vecPeerInfo[hash%m_iServernum].ip;
 	int serverport = m_vecPeerInfo[hash%m_iServernum].port;
 	Socket* sock = NULL;
@@ -705,7 +712,7 @@ bool Manager::del(string key)
 int Manager::getHash(const string& key)
 {
 	int total = 0;
-	for(int i = 0; i < key.length(); i++)
+	for(unsigned int i = 0; i < key.length(); i++)
 		total += key[i];
 	return total;
 }
@@ -743,8 +750,6 @@ int Manager::Register()
 		return -1;
 	}
 	m_strFileDir = dirname;
-	int offset = 0;
-	int count = 0;
 	while((direntry = readdir(dir)) != NULL)
 	{
 		if(direntry -> d_type != DT_REG)
@@ -830,20 +835,22 @@ int Manager::DoReplica(string filepath, string filename, int serverindex)
 		return -1;
 	}
 
-	ifstream istream (filepath, std::ifstream::binary);
+	ifstream istream (filepath.c_str(), std::ifstream::binary);
 	istream.seekg(0, istream.end);
 	int fileLen = istream.tellg();
 	istream.seekg(0, istream.beg);
 	char* buffer = new char[fileLen + sizeof(Message)];
+	bzero(buffer, fileLen+sizeof(Message));	
 	Message* msg = (Message*)buffer;
 	msg->action = CMD_REPLICA;
 	strncpy(msg->key, filename.c_str(), MAX_KEY_LENGTH);
-	strncpy(msg->value, identifier, MAX_KEY_LENGTH);
+	strncpy(msg->value, identifer.c_str(), MAX_VALUE_LENGTH);
 	msg->msglength = fileLen;
 	cout<<"file len["<<fileLen<<"]"<<endl;
 	istream.read(buffer + sizeof(Message), fileLen);
 	istream.close();
 
+	cout<<"action "<<msg->action<<" filename " <<msg->key<<" filelen "<<msg->msglength<<endl;
 	sock->Send(buffer, fileLen+sizeof(Message));
 
 
@@ -851,8 +858,8 @@ int Manager::DoReplica(string filepath, string filename, int serverindex)
 	bzero(rbuff, MAX_MESSAGE_LENGTH);
 	if(sock->Recv(rbuff, MAX_MESSAGE_LENGTH) != MAX_MESSAGE_LENGTH)
 	{
-		cout<<"put message recv from hash server failed"<<endl;
-		delete[] sbuff;
+		cout<<"replica recv from server failed"<<endl;
+		delete[] buffer;
 		delete[] rbuff;
 		return -1;
 	}
@@ -875,19 +882,23 @@ int Manager::ReplicaFile()
 		cout<<"Sorry! can not open this directory: "<<m_strFileDir<<endl;
 		return -1;
 	}
-	int offset = 0;
-	int count = 0;
 	while((direntry = readdir(dir)) != NULL)
 	{
 		if(direntry -> d_type != DT_REG)
 			continue;
 		string nametemp = direntry->d_name;
-		if(DoReplica(m_strFileDir+nametemp, nametemp, getHash(nametemp)+1) != 0)
+		int index = getHash(nametemp) + 1;
+		if(index%m_iServernum == m_iCurrentServernum)
+			index++;
+		if(DoReplica(m_strFileDir+nametemp, nametemp, index) != 0)
 		{
 			cout<<"Duplica file["<<nametemp<<"]failed"<<endl;
 			return -1;
 		}
-		if(DoReplica(m_strFileDir+nametemp, nametemp, getHash(nametemp)+2) != 0)
+		index++;
+		if(index%m_iServernum == m_iCurrentServernum)
+			index++;
+		if(DoReplica(m_strFileDir+nametemp, nametemp, index) != 0)
 		{
 			cout<<"Duplica file["<<nametemp<<"]failed"<<endl;
 			return -1;

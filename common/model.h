@@ -42,9 +42,9 @@ typedef struct PeerInfo
 typedef struct Message
 {
 	Cmd_Indicate action;
+	int msglength;
 	char key[MAX_KEY_LENGTH];
 	char value[MAX_VALUE_LENGTH];
-	int msglength;
 }Message;
 
 struct DownloadPkg

@@ -11,6 +11,10 @@ all:$(PEER_TARGET)
 
 $(PEER_TARGET): $(PEER_OBJS)
 	g++ -o $(PEER_TARGET) $(PEER_OBJS) -l pthread -lghthash
+	cp $(PEER_TARGET) ./peer0/$(PEER_TARGET)
+	cp $(PEER_TARGET) ./peer1/$(PEER_TARGET)
+	cp $(PEER_TARGET) ./peer2/$(PEER_TARGET)
+	cp $(PEER_TARGET) ./peer3/$(PEER_TARGET)
 
 clean:
 	rm -rf $(PEER_OBJS) $(PEER_TARGET) 
