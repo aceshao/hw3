@@ -658,66 +658,6 @@ int Manager::getHash(const string& key)
 
 int Manager::testmode()
 {
-	cout<<"You are now in TEST MODE"<<endl;
-	cout<<"Sleep for 5 seconds to wait other server up"<<endl;
-	usleep(5000000);
-	cout<<"Now begin to test"<<endl;
-	const int keybegin = m_vecPeerInfo[m_iCurrentServernum].keybegin;
-	const int keyend = m_vecPeerInfo[m_iCurrentServernum].keyend;
-
-	struct timeval begin;
-	struct timeval end;
-
-	gettimeofday(&begin, NULL);
-	for(int i = keybegin; i < keyend; i++)
-	{
-		char key[30] = {0};
-		snprintf(key, 30, "%d", i);
-		// for test, we use the value same with key
-		if(put(key, key) != 0)
-			cout<<"test mode put failed"<<endl;
-	}
-	gettimeofday(&end, NULL);
-	m_iPutTime = 1000000*end.tv_sec + end.tv_usec - begin.tv_usec - 1000000*begin.tv_sec;
-	int atbegin = begin.tv_usec + 1000000*begin.tv_sec;
-
-
-	gettimeofday(&begin, NULL);	
-	for(int i = keybegin; i < keyend; i++)
-	{
-		char key[30] = {0};
-		string value = "";
-		snprintf(key, 30, "%d", i);
-		if(get(key, value) != 0 || value == "")
-			cout<<"test mode get failed"<<endl;
-	}
-	gettimeofday(&end, NULL);
-	m_iGetTime = 1000000*end.tv_sec + end.tv_usec - begin.tv_usec - 1000000*begin.tv_sec;
-
-
-	gettimeofday(&begin, NULL);
-	for(int i = keybegin; i < keyend; i++)
-	{
-		char key[30] = {0};
-		string value = "";
-		snprintf(key, 30, "%d", i);
-		if(del(key) != 0)
-			cout<<"test mode del failed"<<endl;
-	}	
-	gettimeofday(&end, NULL);
-	m_iDelTime = 1000000*end.tv_sec + end.tv_usec - begin.tv_usec - 1000000*begin.tv_sec;
-	
-	int atend = end.tv_usec + 1000000*end.tv_sec;
-
-
-	int loop = keyend - keybegin;
-	assert(loop > 0);
-	cout<<"Peer node["<<m_iCurrentServernum<<"] do ["<<loop<<"] times put, get, del each"<<endl;
-	cout<<"Total time["<<atend-atbegin<<"]us"<<endl;
-	cout<<"Average put time is ["<<m_iPutTime/loop<<"]us"<<endl;
-	cout<<"Average get time is ["<<m_iGetTime/loop<<"]us"<<endl;
-	cout<<"Average del time is ["<<m_iDelTime/loop<<"]us"<<endl;
-	cout<<"TEST DONE"<<endl;
 	return 0;
 }
 

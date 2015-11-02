@@ -33,6 +33,9 @@ protected:
 	int Init();
 	int Listen();
 	int Loop();
+	int Manager::Register();
+	int Manager::DownloadFile(string filename, string ip, int port);
+
 
 private:
 	int put(string key, string value);
@@ -45,6 +48,9 @@ private:
 	int testmode();
 
 	Socket* getSock(string ip, int port);
+	string Manager::MakeIdentifer();
+	int Manager::ParserIdentifer(const string& identifer, string& ip, int& port);
+
 
 
 private:
