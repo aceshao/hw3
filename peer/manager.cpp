@@ -69,7 +69,7 @@ Manager::Manager(string configfile)
 		pi.fileserverport = config->GetIntVal("SYSTEM", fileserverport, 70000);
 		pi.identifier = config->GetIntVal("SYSTEM", serveridentifier, 0);
 		pi.filebufdir = config->GetStrVal("SYSTEM", filebufdir, "./file/");
-		pi.downloaddir = config->GetIntVal("SYSTEM", downloaddir, "./download/");
+		pi.downloaddir = config->GetStrVal("SYSTEM", downloaddir, "./download/");
 		pi.sock = NULL;
 
 		m_vecPeerInfo.push_back(pi);
@@ -300,7 +300,6 @@ void* Process(void* arg)
 		//pmgr->m_mtxRecv->Lock();
 		if(client->Recv(recvBuff, MAX_MESSAGE_LENGTH) != MAX_MESSAGE_LENGTH)
 		{
-			cout<<"server recv failed"<<endl;
 		//	pmgr->m_mtxRecv->Unlock();
 			delete [] recvBuff;
 			continue;
@@ -328,7 +327,7 @@ void* Process(void* arg)
 				{
 					sendMsg->action = CMD_OK;
 					strncpy(sendMsg->key, recvMsg->key, MAX_KEY_LENGTH);
-					strncpy(sendMsg->value, value.c_str(), MAX_KEY_LENGTH);
+					strncpy(sendMsg->value, value.c_str(), MAX_VALUE_LENGTH);
 				}
 				//pmgr->m_mtxSend->Lock();
 				client->Send(sendMsg, MAX_MESSAGE_LENGTH);
@@ -375,6 +374,7 @@ void* Process(void* arg)
 				break;				
 			}
 			case CMD_DOWNLOAD:
+			{
 				string downloadFilename = recvMsg->key;
 				cout<<"request to download file["<<downloadFilename<<"]"<<endl;
 				string dirname = "";
@@ -431,6 +431,7 @@ void* Process(void* arg)
 					client->Send(buffer, MSG_HEAD_LEN);
 				}
 				break;	
+			}
 			default:
 			cout<<"cmd unknown["<<recvMsg->action<<"]"<<endl;
 		}
@@ -447,16 +448,16 @@ void* UserCmdProcess(void* arg)
 {
 	Manager* pmgr = (Manager*)arg;
 
-	cout<<"Welcome to the hash distributed system, you are in the peer client"<<endl;
+	cout<<"Welcome to the distributed file sharing system, you are in the peer client"<<endl;
 	if(pmgr->m_iTestMode != 0)
 		pmgr->testmode();
 
 	cout<<endl<<"Welcome to the user interface"<<endl;
-	cout<<"You can put, get, del key to and from the system"<<endl;
+	cout<<"You can put, get, key to and from the hash index system"<<endl;
 
 	while(1)
 	{
-		if(mgr->Register() != 0)
+		if(pmgr->Register() != 0)
 		{
 			cout<<"Register failed. Wanna try again please press y"<<endl;
 			char respond;
@@ -466,6 +467,7 @@ void* UserCmdProcess(void* arg)
 			else
 				break;
 		}
+		else break;
 	}
 
 	while(1)
@@ -475,19 +477,20 @@ void* UserCmdProcess(void* arg)
 		cout<<"Please enter the file name you wanna download"<<endl;
 		cin>>filename;
 		if(pmgr->get(filename, value) != 0 || value == "")
+		{
 			cout<<"get failed"<<endl;
+			continue;
+		}
 		else
 			cout<<"get success"<<endl;
 		string ip = "";
 		int port = 0;
-		ParserIdentifer(value, ip, port);
-		cout<<"ip["<<ip<<"]port["<<port<<"]has the file["<<filename<<"]"<<endl;
-		
+		pmgr->ParserIdentifer(value, ip, port);
 		cout<<"Now downlaod this file?"<<endl;
 		char isDownload;
 		cin>>isDownload;
 		if(isDownload == 'y' || isDownload == 'Y')
-			DownloadFile(filename, ip, port);
+			pmgr->DownloadFile(filename, ip, port);
 	}
 	return 0;
 }
@@ -525,6 +528,7 @@ Socket* Manager::getSock(string ip, int port)
 int Manager::put(string key, string value)
 {
 	int hash = getHash(key);
+	cout<<"hash:"<<hash<<endl;
 	string severip = m_vecPeerInfo[hash%m_iServernum].ip;
 	int serverport = m_vecPeerInfo[hash%m_iServernum].port;
 	Socket* sock = NULL;
@@ -653,7 +657,10 @@ bool Manager::del(string key)
 
 int Manager::getHash(const string& key)
 {
-	return atoi(key.c_str());
+	int total = 0;
+	for(int i = 0; i < key.length(); i++)
+		total += key[i];
+	return total;
 }
 
 int Manager::testmode()
@@ -669,8 +676,8 @@ string Manager::MakeIdentifer()
 int Manager::ParserIdentifer(const string& identifer, string& ip, int& port)
 {
 	int pos = identifer.find(";");
-	ip = identifer.substr(0, pos-1);
-	port = atoi(substr(pos+1).c_str());
+	ip = identifer.substr(0, pos);
+	port = atoi(identifer.substr(pos+1).c_str());
 	return 0;
 }
 
@@ -686,7 +693,6 @@ int Manager::Register()
 	if((dir = opendir(dirname.c_str())) == NULL)
 	{
 		cout<<"Sorry! can not open this directory: "<<dirname<<endl;
-		delete [] registerPkg;
 		return -1;
 	}
 	int offset = 0;
@@ -696,9 +702,9 @@ int Manager::Register()
 		if(direntry -> d_type != DT_REG)
 			continue;
 		string nametemp = direntry->d_name;
-		if(put(namestemp, identifer) != 0)
+		if(put(nametemp, identifer) != 0)
 		{
-			cout<<"put file["<<namestemp<<"]failed"<<endl;
+			cout<<"put file["<<nametemp<<"]failed"<<endl;
 			return -1;
 		}
 	}
@@ -728,15 +734,10 @@ int Manager::DownloadFile(string filename, string ip, int port)
 		return -1;
 	}
 
-	Message* rmsg = (Message*)rbuff;
-	int ret = rmsg->action == CMD_OK?0:-1;
-
 	delete[] sbuff;
-	delete[] rbuff;
-	return ret;
 
 	char szBuffer[MSG_HEAD_LEN] = {0};
-	if(sock.Recv(szBuffer, MSG_HEAD_LEN) != MSG_HEAD_LEN)
+	if(sock->Recv(szBuffer, MSG_HEAD_LEN) != MSG_HEAD_LEN)
 	{
 		cout<<"downlaod socket recv failed"<<endl;
 		return -1;
@@ -751,7 +752,7 @@ int Manager::DownloadFile(string filename, string ip, int port)
 	else
 	{
 		char* file = new char[msg->msglength];
-		if(sock.Recv(file, msg->msglength) != msg->msglength)
+		if(sock->Recv(file, msg->msglength) != msg->msglength)
 		{
 			cout<<"download recv failed"<<endl;
 			delete [] file;

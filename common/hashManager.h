@@ -4,6 +4,7 @@
 #include <string>
 #include "thread.h"
 #include <ght_hash_table.h>
+#include <map>
 using namespace std;
 
 class HashtableManager
@@ -20,6 +21,7 @@ public:
 private:
 	Mutex* m_pmtx;
 	ght_hash_table_t* m_pght;
+	map<string,string> m_mapHash;	
 
 };
 

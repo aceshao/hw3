@@ -1,6 +1,8 @@
 
 #include "hashManager.h"
 #include <assert.h>
+#include <iostream>
+using namespace std;
 
 HashtableManager::HashtableManager()
 {
@@ -29,27 +31,33 @@ int HashtableManager::Create(unsigned int hashnum)
 int HashtableManager::Insert(string key, string value)
 {
 	m_pmtx->Lock();
-	int ret = ght_insert(m_pght, (void*)value.c_str(), key.length(), (char*)key.c_str());
+//	int ret = ght_insert(m_pght, (char*)value.c_str(), key.length(), key.c_str());
+	m_mapHash[key] = value;
 	m_pmtx->Unlock();
-	return ret;
+	return 0;
 }
 
 int HashtableManager::Search(string key, string& value)
 {
-//	m_pmtx->Lock();
+/*
+	m_pmtx->Lock();
 	void* v = NULL;
-	if((v = ght_get(m_pght, key.length(), (char*)key.c_str())) == NULL)
+	if((v = ght_get(m_pght, key.length(), key.c_str())) == NULL)
 	{
-//		m_pmtx->Unlock();
+		m_pmtx->Unlock();
 		return -1;
 	}
+	cout<<"key "<<key<<" search hash value:"<<(char*)v<<endl;
 	value = (char*)v;
-//	m_pmtx->Unlock();
+	m_pmtx->Unlock();
+*/
+	value = m_mapHash[key];	
 	return 0;
 }
 
 int HashtableManager::Delete(string key)
 {
+/*
 	m_pmtx->Lock();
 	void* v = NULL;
 	if((v = ght_remove(m_pght, key.length(), (char*)key.c_str())) == NULL)
@@ -58,5 +66,6 @@ int HashtableManager::Delete(string key)
 		return -1;
 	}
 	m_pmtx->Unlock();
+*/
 	return 0;
 }
