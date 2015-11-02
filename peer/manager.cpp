@@ -72,6 +72,7 @@ Manager::Manager(string configfile)
 		pi.filebufdir = config->GetStrVal("SYSTEM", filebufdir, "./file/");
 		pi.downloaddir = config->GetStrVal("SYSTEM", downloaddir, "./download/");
 		pi.sock = NULL;
+		pi.sockAvailable = true;
 
 		m_vecPeerInfo.push_back(pi);
 	}
@@ -534,8 +535,8 @@ void* UserCmdProcess(void* arg)
 		if(pmgr->get(filename, value) != 0)
 		{
 			cout<<"get failed"<<endl;
-			int index = getHash(filename) + 1;
-			if(index%m_iServernum == m_iCurrentServernum)
+			int index = pmgr->getHash(filename) + 1;
+			if(index%pmgr->m_iServernum == pmgr->m_iCurrentServernum)
 				index++;
 			cout<<"now try another server"<<endl;
 			if(pmgr->get(filename, value, index) != 0 || value == "")
@@ -572,6 +573,11 @@ Socket* Manager::getSock(string ip, int port)
 		{
 			if(m_vecPeerInfo[i].sock != NULL)
 			{
+				if(! m_vecPeerInfo[i].sockAvailable)
+				{		
+					cout<<"sock unavailable"<<endl;
+					return NULL;
+				}
 				if(m_vecPeerInfo[i].sock->Connect() != 0)
 				{
 					if(errno == EISCONN)
@@ -681,19 +687,19 @@ int Manager::get(string key, string& value, int index)
 	smsg->action = CMD_SEARCH;
 	strncpy(smsg->key, key.c_str(), MAX_KEY_LENGTH);
 
-	cout<<"before send"<<endl;
 	if(sock->Send(sbuff, MAX_MESSAGE_LENGTH) != MAX_MESSAGE_LENGTH)
 	{
+		m_vecPeerInfo[hash%m_iServernum].sockAvailable = false;
 		cout<<"send search message to hash server failed"<<endl;
 		delete[] sbuff;
 		return -1;
 	}
-	cout<<"after send"<<endl;
 
 	char* rbuff = new char[MAX_MESSAGE_LENGTH];
 	bzero(rbuff, MAX_MESSAGE_LENGTH);
 	if(sock->Recv(rbuff, MAX_MESSAGE_LENGTH) != MAX_MESSAGE_LENGTH)
 	{
+		m_vecPeerInfo[hash%m_iServernum].sockAvailable = false;
 		cout<<"search message recv from hash server failed"<<endl;
 		delete[] sbuff;
 		delete[] rbuff;

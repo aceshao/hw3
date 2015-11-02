@@ -24,8 +24,7 @@ enum Cmd_Indicate
 const int MAX_INDICATE_LENGTH = sizeof(Cmd_Indicate);
 const int MAX_KEY_LENGTH = 100;
 const int MAX_VALUE_LENGTH = 1000;
-const int MAX_MESSAGE_LENGTH = MAX_KEY_LENGTH + MAX_VALUE_LENGTH + MAX_INDICATE_LENGTH;
-
+//const int MAX_MESSAGE_LENGTH = MAX_KEY_LENGTH + MAX_VALUE_LENGTH + MAX_INDICATE_LENGTH;
 typedef struct PeerInfo
 {
 	string ip;
@@ -35,6 +34,7 @@ typedef struct PeerInfo
 	string filebufdir;
 	string downloaddir;
 	Socket* sock;
+	bool sockAvailable;
 
 }PeerInfo;
 
@@ -57,7 +57,8 @@ struct MsgPkg
 	Cmd_Indicate msgcmd;
 	int msglength;
 };
-const int MSG_HEAD_LEN = 8;
+const int MSG_HEAD_LEN = sizeof(MsgPkg);
+const int MAX_MESSAGE_LENGTH = sizeof(Message);
 
 #pragma pack()
 
