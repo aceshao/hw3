@@ -436,18 +436,18 @@ void* Process(void* arg)
 			case CMD_REPLICA:
 			{
 				// write to file
-				char* file = new char[recv->msglength];
-				if(client->Recv(file, msg->msglength) != msg->msglength)
+				char* file = new char[recvMsg->msglength];
+				if(client->Recv(file, recvMsg->msglength) != recvMsg->msglength)
 				{
-					cout<<"download recv failed"<<endl;
+					cout<<"replica file recv failed"<<endl;
 					delete [] file;
 					return -1;
 				}
 
 				ofstream out;
-				string filefullpath = m_vecPeerInfo[m_iCurrentServernum].filebufdir + recv->key;
+				string filefullpath = m_vecPeerInfo[m_iCurrentServernum].filebufdir + recvMsg->key;
 				out.open(filefullpath.c_str(), ios::out|ios::binary);
-				out.write(file, msg->msglength);
+				out.write(file, recvMsg->msglength);
 				out.close();
 				delete [] file;
 
@@ -504,6 +504,17 @@ void* UserCmdProcess(void* arg)
 				break;
 		}
 		else break;
+	}
+
+	while(1)
+	{
+		cout<<"Do now replica all files?"<<endl;
+		char cmd;
+		cin>>cmd;
+		if(cmd == 'y' || cmd == 'Y')
+			pmgr->ReplicaFile();
+
+		break;
 	}
 
 	while(1)

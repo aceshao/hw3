@@ -50,6 +50,8 @@ private:
 	Socket* getSock(string ip, int port);
 	string MakeIdentifer();
 	int ParserIdentifer(const string& identifer, string& ip, int& port);
+	int ReplicaFile();
+	int DoReplica(string filepath, string filename, int serverindex);
 
 
 
