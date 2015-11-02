@@ -17,11 +17,12 @@ enum Cmd_Indicate
 	CMD_DEL = 4,
 	CMD_DOWNLOAD = 5,
 	MSG_CMD_DOWNLOAD_RESPONSE = 6,
-	CMD_UNKNOWN = 7
+	CMD_REPLICA = 7,
+	CMD_UNKNOWN = 8
 };
 
 const int MAX_INDICATE_LENGTH = sizeof(Cmd_Indicate);
-const int MAX_KEY_LENGTH = 20;
+const int MAX_KEY_LENGTH = 100;
 const int MAX_VALUE_LENGTH = 1000;
 const int MAX_MESSAGE_LENGTH = MAX_KEY_LENGTH + MAX_VALUE_LENGTH + MAX_INDICATE_LENGTH;
 
@@ -43,6 +44,7 @@ typedef struct Message
 	Cmd_Indicate action;
 	char key[MAX_KEY_LENGTH];
 	char value[MAX_VALUE_LENGTH];
+	int msglength;
 }Message;
 
 struct DownloadPkg

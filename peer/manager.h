@@ -71,6 +71,8 @@ private:
 	string m_strPeerFileBufferDir;
 	vector<PeerInfo> m_vecPeerInfo; // all peers in this static network info
 
+	string m_strFileDir;
+
 	Sem* m_semRequest;
 	Mutex* m_mtxRequest;
 	

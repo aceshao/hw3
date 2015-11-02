@@ -24,6 +24,7 @@ Manager::Manager(string configfile)
 	m_semRequest = NULL;
 	m_mtxRequest = NULL;
 	m_pUserProcess = NULL;
+	m_strFileDir = "";
 	
 	m_mtxRecv = NULL;
 	m_mtxSend = NULL;
@@ -432,6 +433,41 @@ void* Process(void* arg)
 				}
 				break;	
 			}
+			case CMD_REPLICA:
+			{
+				// write to file
+				char* file = new char[recv->msglength];
+				if(client->Recv(file, msg->msglength) != msg->msglength)
+				{
+					cout<<"download recv failed"<<endl;
+					delete [] file;
+					return -1;
+				}
+
+				ofstream out;
+				string filefullpath = m_vecPeerInfo[m_iCurrentServernum].filebufdir + recv->key;
+				out.open(filefullpath.c_str(), ios::out|ios::binary);
+				out.write(file, msg->msglength);
+				out.close();
+				delete [] file;
+
+				// record the key, value which is self.
+				if(pmgr->m_htm.Insert(recvMsg->key, MakeIdentifer()) != 0)
+				{
+					sendMsg->action = CMD_FAILED;
+					strncpy(sendMsg->key, recvMsg->key, MAX_KEY_LENGTH);
+					strncpy(sendMsg->value, recvMsg->value, MAX_VALUE_LENGTH);
+				}
+				else
+				{
+					sendMsg->action = CMD_OK;
+					strncpy(sendMsg->key, recvMsg->key, MAX_KEY_LENGTH);
+					strncpy(sendMsg->value, recvMsg->value, MAX_VALUE_LENGTH);
+				}
+				client->Send(sendMsg, MAX_MESSAGE_LENGTH);
+
+				break;
+			}
 			default:
 			cout<<"cmd unknown["<<recvMsg->action<<"]"<<endl;
 		}
@@ -695,6 +731,7 @@ int Manager::Register()
 		cout<<"Sorry! can not open this directory: "<<dirname<<endl;
 		return -1;
 	}
+	m_strFileDir = dirname;
 	int offset = 0;
 	int count = 0;
 	while((direntry = readdir(dir)) != NULL)
@@ -769,4 +806,108 @@ int Manager::DownloadFile(string filename, string ip, int port)
 
 	return 0;
 }
+
+int Manager::DoReplica(string filepath, string filename, int serverindex)
+{
+	string identifer = MakeIdentifer();
+	string severip = m_vecPeerInfo[serverindex%m_iServernum].ip;
+	int serverport = m_vecPeerInfo[serverindex%m_iServernum].port;
+	Socket* sock = NULL;
+	if((sock = getSock(severip.c_str(), serverport)) == NULL)
+	{
+		cout<<"get sock failed"<<endl;
+		return -1;
+	}
+
+	ifstream istream (filepath, std::ifstream::binary);
+	istream.seekg(0, istream.end);
+	int fileLen = istream.tellg();
+	istream.seekg(0, istream.beg);
+	char* buffer = new char[fileLen + sizeof(Message)];
+	Message* msg = (Message*)buffer;
+	msg->action = CMD_REPLICA;
+	strncpy(msg->key, filename.c_str(), MAX_KEY_LENGTH);
+	strncpy(msg->value, identifier, MAX_KEY_LENGTH);
+	msg->msglength = fileLen;
+	cout<<"file len["<<fileLen<<"]"<<endl;
+	istream.read(buffer + sizeof(Message), fileLen);
+	istream.close();
+
+	sock->Send(buffer, fileLen+sizeof(Message));
+
+
+	char* rbuff = new char[MAX_MESSAGE_LENGTH];
+	bzero(rbuff, MAX_MESSAGE_LENGTH);
+	if(sock->Recv(rbuff, MAX_MESSAGE_LENGTH) != MAX_MESSAGE_LENGTH)
+	{
+		cout<<"put message recv from hash server failed"<<endl;
+		delete[] sbuff;
+		delete[] rbuff;
+		return -1;
+	}
+
+	Message* rmsg = (Message*)rbuff;
+	int ret = rmsg->action == CMD_OK?0:-1;
+
+	delete[] buffer;
+	delete[] rbuff;
+	return ret;
+}
+
+int Manager::ReplicaFile()
+{
+	DIR* dir = NULL;
+	struct dirent* direntry;
+
+	if((dir = opendir(m_strFileDir.c_str())) == NULL)
+	{
+		cout<<"Sorry! can not open this directory: "<<m_strFileDir<<endl;
+		return -1;
+	}
+	int offset = 0;
+	int count = 0;
+	while((direntry = readdir(dir)) != NULL)
+	{
+		if(direntry -> d_type != DT_REG)
+			continue;
+		string nametemp = direntry->d_name;
+		if(DoReplica(m_strFileDir+nametemp, nametemp, getHash(nametemp)+1) != 0)
+		{
+			cout<<"Duplica file["<<nametemp<<"]failed"<<endl;
+			return -1;
+		}
+		if(DoReplica(m_strFileDir+nametemp, nametemp, getHash(nametemp)+2) != 0)
+		{
+			cout<<"Duplica file["<<nametemp<<"]failed"<<endl;
+			return -1;
+		}
+	}
+	cout<<"Duplica finished"<<endl;
+	return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
