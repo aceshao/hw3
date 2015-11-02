@@ -531,9 +531,22 @@ void* UserCmdProcess(void* arg)
 		string value = "";
 		cout<<"Please enter the file name you wanna download"<<endl;
 		cin>>filename;
-		if(pmgr->get(filename, value) != 0 || value == "")
+		if(pmgr->get(filename, value) != 0)
 		{
 			cout<<"get failed"<<endl;
+			int index = getHash(filename) + 1;
+			if(index%m_iServernum == m_iCurrentServernum)
+				index++;
+			cout<<"now try another server"<<endl;
+			if(pmgr->get(filename, value, index) != 0 || value == "")
+			{
+				cout<<"try again failed"<<endl;
+				continue;
+			}
+		}
+		else if(value == "")
+		{
+			cout<<"file do not exist"<<endl;
 			continue;
 		}
 		else
@@ -646,9 +659,13 @@ int Manager::put(string key, string value)
 	delete[] rbuff;
 	return ret;
 }
-int Manager::get(string key, string& value)
+int Manager::get(string key, string& value, int index)
 {
-	int hash = getHash(key);
+	int hash = 0;
+	if(index == -1)
+		hash= getHash(key);
+	else
+		hash = index;
 	string severip = m_vecPeerInfo[hash%m_iServernum].ip;
 	int serverport = m_vecPeerInfo[hash%m_iServernum].port;
 	Socket* sock = NULL;
