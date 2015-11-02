@@ -558,7 +558,26 @@ Socket* Manager::getSock(string ip, int port)
 		if(m_vecPeerInfo[i].ip == ip && m_vecPeerInfo[i].port == port)
 		{
 			if(m_vecPeerInfo[i].sock != NULL)
-				return m_vecPeerInfo[i].sock;
+			{
+				if(m_vecPeerInfo[i].sock->Connect() != 0)
+				{
+					if(errno == EISCONN)
+					{
+						cout<<"already connect"<<endl;
+						return m_vecPeerInfo[i].sock;
+					}
+					else
+					{
+						cout<<"connect failed"<<endl;
+						return NULL;
+					}
+				}
+				else
+				{
+					cout<<"connect success"<<endl;
+					return m_vecPeerInfo[i].sock;
+				}
+			}
 			else
 				s = &m_vecPeerInfo[i].sock;
 		}
@@ -566,7 +585,11 @@ Socket* Manager::getSock(string ip, int port)
 
 	Socket* sock = new Socket(ip.c_str(), port, ST_TCP);
 	sock->Create();
-
+	struct timeval timeout;      
+    	timeout.tv_sec = 2;
+    	timeout.tv_usec = 0;
+	sock->SetSockOpt(SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+	sock->SetSockOpt(SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
 	if(sock->Connect() != 0)
 	{
 		cout<<"connect to hash server failed"<<endl;
@@ -641,12 +664,14 @@ int Manager::get(string key, string& value)
 	smsg->action = CMD_SEARCH;
 	strncpy(smsg->key, key.c_str(), MAX_KEY_LENGTH);
 
+	cout<<"before send"<<endl;
 	if(sock->Send(sbuff, MAX_MESSAGE_LENGTH) != MAX_MESSAGE_LENGTH)
 	{
 		cout<<"send search message to hash server failed"<<endl;
 		delete[] sbuff;
 		return -1;
 	}
+	cout<<"after send"<<endl;
 
 	char* rbuff = new char[MAX_MESSAGE_LENGTH];
 	bzero(rbuff, MAX_MESSAGE_LENGTH);
