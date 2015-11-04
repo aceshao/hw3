@@ -299,10 +299,10 @@ void* Process(void* arg)
 
 		char* recvBuff = new char[MAX_MESSAGE_LENGTH];
 		bzero(recvBuff, MAX_MESSAGE_LENGTH);
-		pmgr->m_mtxRecv->Lock();
+//		pmgr->m_mtxRecv->Lock();
 		if(client->Recv(recvBuff, MAX_MESSAGE_LENGTH) != MAX_MESSAGE_LENGTH)
 		{
-			pmgr->m_mtxRecv->Unlock();
+//			pmgr->m_mtxRecv->Unlock();
 			delete [] recvBuff;
 			continue;
 		}
@@ -317,7 +317,7 @@ void* Process(void* arg)
 		{
 			case CMD_SEARCH:
 			{
-				pmgr->m_mtxRecv->Unlock();
+//				pmgr->m_mtxRecv->Unlock();
 				string value = "";
 				if(pmgr->m_htm.Search(recvMsg->key, value) != 0)
 				{
@@ -340,7 +340,7 @@ void* Process(void* arg)
 
 			case CMD_PUT:
 			{
-				pmgr->m_mtxRecv->Unlock();
+			//	pmgr->m_mtxRecv->Unlock();
 				if(pmgr->m_htm.Insert(recvMsg->key, recvMsg->value) != 0)
 				{
 					sendMsg->action = CMD_FAILED;
@@ -360,7 +360,7 @@ void* Process(void* arg)
 			}
 			case CMD_DEL:
 			{
-				pmgr->m_mtxRecv->Unlock();
+				//pmgr->m_mtxRecv->Unlock();
 				if(pmgr->m_htm.Delete(recvMsg->key) != 0)
 				{
 					sendMsg->action = CMD_FAILED;
@@ -380,7 +380,7 @@ void* Process(void* arg)
 			}
 			case CMD_DOWNLOAD:
 			{
-				pmgr->m_mtxRecv->Unlock();
+			//	pmgr->m_mtxRecv->Unlock();
 				string downloadFilename = recvMsg->key;
 				cout<<"request to download file["<<downloadFilename<<"]"<<endl;
 				string dirname = "";
@@ -444,7 +444,7 @@ void* Process(void* arg)
 				char* file = new char[recvMsg->msglength];
 				if(client->Recv(file, recvMsg->msglength) != recvMsg->msglength)
 				{
-					pmgr->m_mtxRecv->Unlock();
+					//pmgr->m_mtxRecv->Unlock();
 					cout<<"replica file recv failed"<<endl;
 					delete [] file;
 					sendMsg->action = CMD_FAILED;
@@ -452,7 +452,7 @@ void* Process(void* arg)
 					continue;
 				}
 
-				pmgr->m_mtxRecv->Unlock();
+				//pmgr->m_mtxRecv->Unlock();
 				ofstream out;
 				string filefullpath = pmgr->m_vecPeerInfo[pmgr->m_iCurrentServernum].filebufdir + recvMsg->key;
 				out.open(filefullpath.c_str(), ios::out|ios::binary);
@@ -506,7 +506,7 @@ void* UserCmdProcess(void* arg)
 		string dirname = "";
 		cout<<"please input the directory to register"<<endl;
 		cin >> dirname;
-		if(pmgr->Register() < 0)
+		if(pmgr->Register(dirname) < 0)
 		{
 			cout<<"Register failed. Wanna try again please press y"<<endl;
 			char respond;
@@ -810,7 +810,7 @@ int Manager::Register(string dirname)
 		count++;
 	}
 
-	return 0;
+	return count;
 }
 
 int Manager::SearchTest(string searchFile)
@@ -837,7 +837,7 @@ int Manager::SearchTest(string searchFile)
 	unsigned int i = 0;
 	for(i = 0; i < m_vecTestFilePeer.size(); i++)
 	{
-		if(get(m_vecTestFilePeer[i].filename, &m_vecTestFilePeer[i].identifier) != 0)
+		if(get(m_vecTestFilePeer[i].filename, m_vecTestFilePeer[i].identifier) != 0)
 		{
 			cout<<"get file identifier failed in test mode"<<endl;
 			return i;
@@ -1032,7 +1032,7 @@ int Manager::testmode()
 
 	char searchIndexFile[30] = {0};
 	snprintf(searchIndexFile, 30, "index_%d", m_iCurrentServernum);
-	int scount = SearchTest(searchIndexFile);
+	int scount = SearchTest(m_strPeerFileBufferDir + searchIndexFile);
 	assert(scount > 0);
 
 	gettimeofday(&end, NULL);
@@ -1049,14 +1049,11 @@ int Manager::testmode()
 	
 	int atend = end.tv_usec + 1000000*end.tv_sec;
 
-
-	int loop = keyend - keybegin;
-	assert(loop > 0);
-	cout<<"Peer node["<<m_iCurrentServernum<<"] do ["<<loop<<"] times register, search, obtain each"<<endl;
+	cout<<"Peer node["<<m_iCurrentServernum<<"] do ["<<rcount<<"] times register, ["<<scount<<"] times search, ["<<dcount<<"] times obtain"<<endl;
 	cout<<"Total time["<<atend-atbegin<<"]us"<<endl;
-	cout<<"Average put time is ["<<m_iPutTime/rcount<<"]us"<<endl;
-	cout<<"Average get time is ["<<m_iGetTime/scount<<"]us"<<endl;
-	cout<<"Average del time is ["<<m_iDownloadTime/dcount<<"]us"<<endl;
+	cout<<"Average register time is ["<<m_iPutTime/rcount<<"]us"<<endl;
+	cout<<"Average search time is ["<<m_iGetTime/scount<<"]us"<<endl;
+	cout<<"Average download time is ["<<m_iDownloadTime/dcount<<"]us"<<endl;
 	cout<<"TEST DONE"<<endl;
 	return 0;
 }

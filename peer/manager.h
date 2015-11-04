@@ -76,7 +76,7 @@ private:
 	string m_strPeerFileBufferDir;
 	vector<PeerInfo> m_vecPeerInfo; // all peers in this static network info
 
-	vector<string> m_vecTestFilePeer; // store all the search file. used for test;
+	vector<FilePeer> m_vecTestFilePeer; // store all the search file. used for test;
 
 	string m_strFileDir;
 

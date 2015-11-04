@@ -1,7 +1,8 @@
 #! /bin/sh
 # useage
-# ./createFileTest.sh 1 1000 client.log
-indexfilename=$3
+# ./createFileTest.sh begin end index
+# ./createFileTest.sh 1 1000 0
+
 content=""
 i=$1;
 max=$2;
@@ -15,6 +16,5 @@ content=$content$temp;
 i=$(($i+1));
 done
 
-`echo $content > $indexfilename`
-
-
+indexfilename=`printf "index_%d" $3`;
+`echo $content >> $indexfilename`
