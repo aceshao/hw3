@@ -33,7 +33,7 @@ protected:
 	int Init();
 	int Listen();
 	int Loop();
-	int Register();
+	int Register(string dirname);
 	int DownloadFile(string filename, string ip, int port);
 
 
@@ -52,6 +52,9 @@ private:
 	int ParserIdentifer(const string& identifer, string& ip, int& port);
 	int ReplicaFile();
 	int DoReplica(string filepath, string filename, int serverindex);
+
+	int DownloadTest();
+	int SearchTest(string searchFile);
 
 
 
@@ -73,6 +76,8 @@ private:
 	string m_strPeerFileBufferDir;
 	vector<PeerInfo> m_vecPeerInfo; // all peers in this static network info
 
+	vector<string> m_vecTestFilePeer; // store all the search file. used for test;
+
 	string m_strFileDir;
 
 	Sem* m_semRequest;
@@ -91,7 +96,7 @@ private:
 
 	unsigned int m_iPutTime;
 	unsigned int m_iGetTime;
-	unsigned int m_iDelTime;
+	unsigned int m_iDownloadTime;
 
 };
 

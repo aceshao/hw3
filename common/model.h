@@ -7,6 +7,8 @@
 using namespace std;
 
 const int MAX_EPOLL_FD = 30;
+const char SPLIT_FILE = ' ';
+
 
 enum Cmd_Indicate
 {
@@ -19,6 +21,12 @@ enum Cmd_Indicate
 	MSG_CMD_DOWNLOAD_RESPONSE = 6,
 	CMD_REPLICA = 7,
 	CMD_UNKNOWN = 8
+};
+
+struct FilePeer
+{
+	string filename;
+	string identifier;
 };
 
 const int MAX_INDICATE_LENGTH = sizeof(Cmd_Indicate);

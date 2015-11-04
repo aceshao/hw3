@@ -31,7 +31,7 @@ Manager::Manager(string configfile)
 
 	m_iPutTime = 0;
 	m_iGetTime = 0;
-	m_iDelTime = 0;
+	m_iDownloadTime = 0;
 
 	Config* config = Config::Instance();
 	if( config->ParseConfig(configfile.c_str(), "SYSTEM") != 0)
@@ -502,7 +502,11 @@ void* UserCmdProcess(void* arg)
 
 	while(1)
 	{
-		if(pmgr->Register() != 0)
+		
+		string dirname = "";
+		cout<<"please input the directory to register"<<endl;
+		cin >> dirname;
+		if(pmgr->Register() < 0)
 		{
 			cout<<"Register failed. Wanna try again please press y"<<endl;
 			char respond;
@@ -765,11 +769,6 @@ int Manager::getHash(const string& key)
 	return total;
 }
 
-int Manager::testmode()
-{
-	return 0;
-}
-
 string Manager::MakeIdentifer()
 {
 	return m_strSelfIp + ";" + iTo4ByteString(m_iSelfPort);
@@ -777,27 +776,27 @@ string Manager::MakeIdentifer()
 
 int Manager::ParserIdentifer(const string& identifer, string& ip, int& port)
 {
+	if(identifer == "")
+		return 0;
 	int pos = identifer.find(";");
 	ip = identifer.substr(0, pos);
 	port = atoi(identifer.substr(pos+1).c_str());
 	return 0;
 }
 
-int Manager::Register()
+int Manager::Register(string dirname)
 {
 	string identifer = MakeIdentifer();
-	string dirname = "";
 	DIR* dir = NULL;
 	struct dirent* direntry;
 
-	cout<<"please input the directory to register"<<endl;
-	cin >> dirname;
 	if((dir = opendir(dirname.c_str())) == NULL)
 	{
 		cout<<"Sorry! can not open this directory: "<<dirname<<endl;
 		return -1;
 	}
 	m_strFileDir = dirname;
+	int count = 0;
 	while((direntry = readdir(dir)) != NULL)
 	{
 		if(direntry -> d_type != DT_REG)
@@ -806,11 +805,63 @@ int Manager::Register()
 		if(put(nametemp, identifer) != 0)
 		{
 			cout<<"put file["<<nametemp<<"]failed"<<endl;
-			return -1;
+			return count;
 		}
+		count++;
 	}
 
 	return 0;
+}
+
+int Manager::SearchTest(string searchFile)
+{
+	ifstream in;
+	in.open(searchFile.c_str(), ios::in);
+	in.seekg(0, in.end);
+	int fileLen = in.tellg();
+	in.seekg(0, in.beg);
+
+	char* buffer = new char[fileLen + 1];
+	bzero(buffer, fileLen + 1);
+
+	in.read(buffer, fileLen);
+	char* file = NULL;
+	for(file = strtok(buffer, &SPLIT_FILE); file; file = strtok(NULL, &SPLIT_FILE))
+	{
+		FilePeer fp;
+		fp.filename = trim(file);
+		fp.identifier = "";
+		m_vecTestFilePeer.push_back(fp);
+	}
+
+	unsigned int i = 0;
+	for(i = 0; i < m_vecTestFilePeer.size(); i++)
+	{
+		if(get(m_vecTestFilePeer[i].filename, &m_vecTestFilePeer[i].identifier) != 0)
+		{
+			cout<<"get file identifier failed in test mode"<<endl;
+			return i;
+		}
+	}
+	return i;
+}
+
+int Manager::DownloadTest()
+{
+	int count = 0;
+	for(unsigned int i = 0; i < m_vecTestFilePeer.size(); i++)
+	{
+		string ip = "";
+		int port = 0;
+		ParserIdentifer(m_vecTestFilePeer[i].identifier, ip, port);
+		if(ip != "" && port != 0)
+		{
+			DownloadFile(m_vecTestFilePeer[i].filename, ip, port);
+			count++;
+		}
+	}
+
+	return count;
 }
 
 int Manager::DownloadFile(string filename, string ip, int port)
@@ -956,12 +1007,59 @@ int Manager::ReplicaFile()
 	return 0;
 }
 
+// performance test
+int Manager::testmode()
+{
+	cout<<"You are now in TEST MODE"<<endl;
+	cout<<"Sleep for 5 seconds to wait other server up"<<endl;
+	usleep(5000000);
+	cout<<"Now begin to test"<<endl;
+
+	struct timeval begin;
+	struct timeval end;
+
+	gettimeofday(&begin, NULL);
+
+	int rcount = Register(m_strPeerFileBufferDir);
+	assert(rcount>0);
+
+	gettimeofday(&end, NULL);
+	m_iPutTime = 1000000*end.tv_sec + end.tv_usec - begin.tv_usec - 1000000*begin.tv_sec;
+	int atbegin = begin.tv_usec + 1000000*begin.tv_sec;
 
 
+	gettimeofday(&begin, NULL);	
+
+	char searchIndexFile[30] = {0};
+	snprintf(searchIndexFile, 30, "index_%d", m_iCurrentServernum);
+	int scount = SearchTest(searchIndexFile);
+	assert(scount > 0);
+
+	gettimeofday(&end, NULL);
+	m_iGetTime = 1000000*end.tv_sec + end.tv_usec - begin.tv_usec - 1000000*begin.tv_sec;
 
 
+	gettimeofday(&begin, NULL);
+
+	int dcount = DownloadTest();
+	assert(dcount>0);
+
+	gettimeofday(&end, NULL);
+	m_iDownloadTime = 1000000*end.tv_sec + end.tv_usec - begin.tv_usec - 1000000*begin.tv_sec;
+	
+	int atend = end.tv_usec + 1000000*end.tv_sec;
 
 
+	int loop = keyend - keybegin;
+	assert(loop > 0);
+	cout<<"Peer node["<<m_iCurrentServernum<<"] do ["<<loop<<"] times register, search, obtain each"<<endl;
+	cout<<"Total time["<<atend-atbegin<<"]us"<<endl;
+	cout<<"Average put time is ["<<m_iPutTime/rcount<<"]us"<<endl;
+	cout<<"Average get time is ["<<m_iGetTime/scount<<"]us"<<endl;
+	cout<<"Average del time is ["<<m_iDownloadTime/dcount<<"]us"<<endl;
+	cout<<"TEST DONE"<<endl;
+	return 0;
+}
 
 
 
