@@ -15,6 +15,10 @@ $(PEER_TARGET): $(PEER_OBJS)
 	cp $(PEER_TARGET) ./peer1/$(PEER_TARGET)
 	cp $(PEER_TARGET) ./peer2/$(PEER_TARGET)
 	cp $(PEER_TARGET) ./peer3/$(PEER_TARGET)
+	cp $(PEER_TARGET) ./peer4/$(PEER_TARGET)
+	cp $(PEER_TARGET) ./peer5/$(PEER_TARGET)
+	cp $(PEER_TARGET) ./peer6/$(PEER_TARGET)
+	cp $(PEER_TARGET) ./peer7/$(PEER_TARGET)
 
 clean:
 	rm -rf $(PEER_OBJS) $(PEER_TARGET) 

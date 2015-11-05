@@ -36,11 +36,13 @@ int Daemon(int maxfd, int coredump)
 
 int main(int argc, char* argv[])
 {
-	if(Daemon(1024, 1) < 0)
+
+	if(Daemon(10240, 1) < 0)
 	{
 		printf("daemon start failed");
 		return -1;
 	}
+
 
 	if(argc == 2)
 	{

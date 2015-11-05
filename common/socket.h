@@ -41,6 +41,10 @@ class Socket
 
         string GetIp();
         int GetPort();
+	int RecvExact(void *pBuffer, size_t nBytes, struct timeval *timeout);
+	int SelectRead (struct timeval* timeout);
+
+
 
     private:
         int m_iSocket;

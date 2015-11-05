@@ -312,6 +312,7 @@ void* Process(void* arg)
 		Message* sendMsg = (Message*)sendBuff;
 
 		Message* recvMsg = (Message*)recvBuff;
+		if(! pmgr->m_iTestMode)
 		cout<<"action "<<recvMsg->action<<" file: "<<recvMsg->key<<" identifier "<<recvMsg->value<<" filelen:"<<recvMsg->msglength<<endl;
 		switch(recvMsg->action)
 		{
@@ -382,6 +383,7 @@ void* Process(void* arg)
 			{
 			//	pmgr->m_mtxRecv->Unlock();
 				string downloadFilename = recvMsg->key;
+				if(! pmgr->m_iTestMode)
 				cout<<"request to download file["<<downloadFilename<<"]"<<endl;
 				string dirname = "";
 				DIR* dir = NULL;
@@ -408,15 +410,23 @@ void* Process(void* arg)
 						istream.seekg(0, istream.end);
 						int fileLen = istream.tellg();
 						istream.seekg(0, istream.beg);
+						if(fileLen < 0)
+						{
+							cout<<"filelen not normal "<<fileLen<<endl;
+							fileLen = 0;
+						} 
 						char* buffer = new char[fileLen + sizeof(MsgPkg)];
+						if(! buffer)
+							cout<<"memory new failed"<<endl;
 						MsgPkg* msg = (MsgPkg*)buffer;
 						msg->msgcmd = MSG_CMD_DOWNLOAD_RESPONSE;
 						msg->msglength = fileLen;
+						if(! pmgr->m_iTestMode)
 						cout<<"file len["<<fileLen<<"]"<<endl;
 						istream.read(buffer + sizeof(MsgPkg), fileLen);
 						istream.close();
 
-						client->Send(buffer, fileLen+sizeof(MsgPkg));
+						int isend=client->Send(buffer, fileLen+sizeof(MsgPkg));
 						delete [] buffer;
 					}
 					else
@@ -586,7 +596,6 @@ Socket* Manager::getSock(string ip, int port)
 				{
 					if(errno == EISCONN)
 					{
-						cout<<"already connect"<<endl;
 						return m_vecPeerInfo[i].sock;
 					}
 					else
@@ -611,8 +620,8 @@ Socket* Manager::getSock(string ip, int port)
 	struct timeval timeout;      
     	timeout.tv_sec = 2;
     	timeout.tv_usec = 0;
-	sock->SetSockOpt(SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
-	sock->SetSockOpt(SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
+	//sock->SetSockOpt(SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+	//sock->SetSockOpt(SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
 	if(sock->Connect() != 0)
 	{
 		cout<<"connect to hash server failed"<<endl;
@@ -896,7 +905,7 @@ int Manager::DownloadFile(string filename, string ip, int port)
 	}
 	MsgPkg* msg = (MsgPkg*)szBuffer;
 	
-	if(msg->msglength < 0)
+	if(msg->msglength <= 0)
 	{
 		cout<<"peer server ip: "<<ip<<" port: "<<port<<" does not contain file: "<< filename<<endl;
 		return 0;
@@ -904,9 +913,13 @@ int Manager::DownloadFile(string filename, string ip, int port)
 	else
 	{
 		char* file = new char[msg->msglength];
-		if(sock->Recv(file, msg->msglength) != msg->msglength)
+		timeval val;
+		val.tv_sec=5;
+		val.tv_usec=0;
+		int irecv = 0;
+		if((irecv = sock->RecvExact(file, msg->msglength, &val)) != msg->msglength)
 		{
-			cout<<"download recv failed"<<endl;
+			cout<<"download recv failed: "<<irecv<<endl;
 			delete [] file;
 			return -1;
 		}
@@ -1011,8 +1024,8 @@ int Manager::ReplicaFile()
 int Manager::testmode()
 {
 	cout<<"You are now in TEST MODE"<<endl;
-	cout<<"Sleep for 5 seconds to wait other server up"<<endl;
-	usleep(5000000);
+	cout<<"Sleep for 15 seconds to wait other server up"<<endl;
+	usleep(15000000);
 	cout<<"Now begin to test"<<endl;
 
 	struct timeval begin;

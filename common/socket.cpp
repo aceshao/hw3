@@ -139,3 +139,56 @@ int Socket::SetSockAddressReuse(bool reuse)
 	}
 	return SetSockOpt(SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);	
 }
+
+int Socket:: RecvExact(void *pBuffer, size_t nBytes, struct timeval *timeout)
+{
+	int iNum, nRecvBytes=0;
+	char *pRecvBuf= (char*)pBuffer;
+
+	if ( nBytes<=0 ) return 0;
+
+	while (nRecvBytes < (int)nBytes)
+	{
+		iNum= SelectRead (timeout);
+
+		if (iNum < 0) { // on error
+			return iNum;
+		}
+		else if (iNum == 0) { // timeout
+			break;
+		}
+
+		iNum = Recv((char*)pRecvBuf, nBytes);
+		if (iNum > 0) {
+			nRecvBytes += iNum;
+			pRecvBuf += iNum;
+		}
+		else if (iNum == 0) { // connection closed
+			break;
+		}
+		else
+		{ // onerror
+			if (errno == EWOULDBLOCK)
+			{ // timeout
+				break;
+			}
+		}
+	}
+	return nRecvBytes;
+}
+
+
+int Socket:: SelectRead (struct timeval* timeout)
+{
+	fd_set recv_fds;
+	int iNum= 0;
+
+	if (m_iSocket <0) return -1;
+
+	
+	FD_ZERO( &recv_fds );
+	FD_SET( m_iSocket, &recv_fds );
+	
+	iNum=select( m_iSocket+1, &recv_fds, NULL, NULL, timeout );	
+	return iNum;
+}
